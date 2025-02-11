@@ -1,0 +1,59 @@
+networks:
+  lan1:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.42.0.0/16
+    enable_ipv6: false
+  wan:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.0.0.0/24
+    enable_ipv6: false
+services:
+  frr2:
+    image: quay.io/frrouting/frr:10.2.1
+    container_name: frr2
+    networks:
+      lan1:
+        ipv4_address: 10.42.0.2
+      wan:
+        ipv4_address: 10.0.0.2
+    cap_add:
+      - CHOWN
+      - SETUID
+      - SETGID
+      - NET_ADMIN
+      - SYS_ADMIN
+      - NET_BROADCAST
+    volumes:
+      - ./daemons:/etc/frr/daemons:ro
+      - ./frr2.conf:/etc/frr/frr.conf:ro
+      - ./vtysh.conf:/etc/frr/vtysh.conf:ro
+  frr3:
+    image: quay.io/frrouting/frr:10.2.1
+    container_name: frr3
+    networks:
+      wan:
+        ipv4_address: 10.0.0.3
+    cap_add:
+      - CHOWN
+      - SETUID
+      - SETGID
+      - NET_ADMIN
+      - SYS_ADMIN
+      - NET_BROADCAST
+    volumes:
+      - ./daemons:/etc/frr/daemons:ro
+      - ./frr3.conf:/etc/frr/frr.conf:ro
+      - ./vtysh.conf:/etc/frr/vtysh.conf:ro
+  frr_test:
+    image: frr_test
+    container_name: frr_test
+    network_mode: container:frr2
+    cap_add:
+      - NET_ADMIN
+    build:
+      context: .
+      dockerfile: Dockerfile
