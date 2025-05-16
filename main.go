@@ -7,7 +7,7 @@ import (
 	"net/netip"
 	"os"
 
-	"github.com/osrg/gobgp/v4/pkg/zebra"
+	"github.com/osrg/gobgp/v3/pkg/zebra"
 	"github.com/spf13/cobra"
 	"github.com/vishvananda/netlink"
 	"go4.org/netipx"
@@ -119,7 +119,6 @@ func addRoutes(link netlink.Link, zb *Zebra, zc *zebra.Client, routes []netip.Pr
 			return err
 		}
 	}
-	zc.SendRedistribute(zebra.RouteBGP, 0)
 	return nil
 }
 

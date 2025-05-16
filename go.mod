@@ -2,7 +2,7 @@ module github.com/lukedirtwalker/frr_reproducer
 
 go 1.23.6
 
-require github.com/osrg/gobgp/v4 v4.0.0-20250515054053-fb8744426a89
+require github.com/osrg/gobgp/v3 v3.37.0
 
 require (
 	github.com/spf13/cobra v1.9.1
@@ -18,4 +18,4 @@ require (
 	golang.org/x/sys v0.33.0 // indirect
 )
 
-replace github.com/osrg/gobgp/v4 => ./gobgp
+replace github.com/osrg/gobgp/v3 => github.com/Anapaya/gobgp/v3 v3.37.1-0.20250516052956-3ee436809dee
