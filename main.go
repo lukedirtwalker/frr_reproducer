@@ -41,6 +41,98 @@ func main() {
 			mux := http.NewServeMux()
 			routes := genInitialRoutes()
 			var lastDeleted []netip.Prefix
+
+			var prefixes = []netip.Prefix{
+				netip.MustParsePrefix("10.1.0.0/16"),
+				netip.MustParsePrefix("10.2.0.0/16"),
+				netip.MustParsePrefix("10.3.0.0/16"),
+			}
+			mux.HandleFunc("/reset", func(w http.ResponseWriter, r *http.Request) {
+				nlRoute := netlink.Route{
+					LinkIndex: link.Attrs().Index,
+					Protocol:  149,
+					Priority:  15,
+				}
+				for _, prefix := range prefixes {
+					nlRoute.Dst = netipx.PrefixIPNet(prefix)
+					netlink.RouteDel(&nlRoute)
+				}
+				w.WriteHeader(http.StatusOK)
+			})
+			mux.HandleFunc("/bug", func(w http.ResponseWriter, r *http.Request) {
+				route1 := prefixes[0]
+				route2 := prefixes[1]
+
+				nlRoute := netlink.Route{
+					LinkIndex: link.Attrs().Index,
+					Dst:       netipx.PrefixIPNet(route1),
+					Protocol:  149,
+					Priority:  15,
+				}
+				// Add first route, should trigger BGP UPDATE adv
+				if err := netlink.RouteAdd(&nlRoute); err != nil {
+					fmt.Fprintf(os.Stderr, "Failed to add route %s: %v\n", route1, err)
+					http.Error(w, err.Error(), http.StatusInternalServerError)
+					return
+				}
+				time.Sleep(1 * time.Second)
+				// Add second route, but no BGP UPDATE message yet, because MRAI timer.
+				nlRoute.Dst = netipx.PrefixIPNet(route2)
+				if err := netlink.RouteAdd(&nlRoute); err != nil {
+					fmt.Fprintf(os.Stderr, "Failed to add route %s: %v\n", route2, err)
+					http.Error(w, err.Error(), http.StatusInternalServerError)
+					return
+				}
+				time.Sleep(250 * time.Millisecond)
+				// Emulate route1 flap (del/add), where route1 will be eventually withdraw and the add
+				// is suppress as a duplicate. This should happen within the MRAI timer.
+				nlRoute.Dst = netipx.PrefixIPNet(route1)
+				if err := netlink.RouteDel(&nlRoute); err != nil {
+					fmt.Fprintf(os.Stderr, "Failed to del route %s: %v\n", route1, err)
+					http.Error(w, err.Error(), http.StatusInternalServerError)
+					return
+				}
+				time.Sleep(250 * time.Millisecond)
+				if err := netlink.RouteAdd(&nlRoute); err != nil {
+					fmt.Fprintf(os.Stderr, "Failed to re-add route %s: %v\n", route1, err)
+					http.Error(w, err.Error(), http.StatusInternalServerError)
+					return
+				}
+				w.WriteHeader(http.StatusOK)
+			})
+			mux.HandleFunc("/bug2", func(w http.ResponseWriter, r *http.Request) {
+				route1 := prefixes[0]
+				route2 := prefixes[1]
+
+				nlRoute := netlink.Route{
+					LinkIndex: link.Attrs().Index,
+					Dst:       netipx.PrefixIPNet(route1),
+					Protocol:  149,
+					Priority:  15,
+				}
+				// Add first route, should trigger BGP UPDATE adv
+				if err := netlink.RouteAdd(&nlRoute); err != nil {
+					fmt.Fprintf(os.Stderr, "Failed to add route %s: %v\n", route1, err)
+					http.Error(w, err.Error(), http.StatusInternalServerError)
+					return
+				}
+				time.Sleep(1 * time.Second)
+				// Del route1, the withdraw only BGP UPDATE is sent regardless of the MRAI timer.
+				nlRoute.Dst = netipx.PrefixIPNet(route1)
+				if err := netlink.RouteDel(&nlRoute); err != nil {
+					fmt.Fprintf(os.Stderr, "Failed to del route %s: %v\n", route1, err)
+					http.Error(w, err.Error(), http.StatusInternalServerError)
+					return
+				}
+				nlRoute.Dst = netipx.PrefixIPNet(route2)
+				time.Sleep(250 * time.Millisecond)
+				if err := netlink.RouteAdd(&nlRoute); err != nil {
+					fmt.Fprintf(os.Stderr, "Failed to add route %s: %v\n", route2, err)
+					http.Error(w, err.Error(), http.StatusInternalServerError)
+					return
+				}
+				w.WriteHeader(http.StatusOK)
+			})
 			mux.HandleFunc("/add", func(w http.ResponseWriter, r *http.Request) {
 				toAdd := routes
 				if len(lastDeleted) > 0 {

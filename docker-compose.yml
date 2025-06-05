@@ -31,6 +31,8 @@ services:
       - ./daemons:/etc/frr/daemons:ro
       - ./frr2.conf:/etc/frr/frr.conf:ro
       - ./vtysh.conf:/etc/frr/vtysh.conf:ro
+      - ./bug1.sh:/bug1.sh:ro
+      - ./bug2.sh:/bug2.sh:ro
   frr3:
     image: quay.io/frrouting/frr:10.2.1
     container_name: frr3
